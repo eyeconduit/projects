@@ -1,0 +1,61 @@
+import requests, smtplib
+import datetime as dt
+
+STOCK = "TSLA"
+COMPANY_NAME = "Tesla Inc"
+api_key = "GOES IN HERE"
+parameters = {
+    "function": "TIME_SERIES_DAILY",
+    "symbol": STOCK,
+    "apikey": api_key
+}
+
+now = dt.datetime.now()
+
+# When STOCK price increase/decreases by 5% between yesterday and the day before
+response = requests.get("https://www.alphavantage.co/query", params=parameters)
+response.raise_for_status()
+stock_data = response.json()["Time Series (Daily)"]
+stock_list = [value for (key, value) in stock_data.items()]
+
+yesterday_close = float(stock_list[0]["4. close"])
+day_before_close = float(stock_list[1]["4. close"])
+difference = abs(yesterday_close - day_before_close)
+diff_percent = round((difference / day_before_close) * 100, 2)
+
+# First 3 news pieces for the COMPANY_NAME is retrieved
+new_api_key = "GOES IN HERE"
+news_parameters ={
+    "apiKey": new_api_key,
+    "qInTitle": COMPANY_NAME,
+    "pageSize": 3,
+    "page": 1
+
+}
+
+response = requests.get("https://newsapi.org/v2/everything", params=news_parameters)
+response.raise_for_status()
+news_data = response.json()['articles']
+three_articles = news_data[:3]
+# print(three_articles)
+# msg = ""
+article_list = [f"Headline: {article['title']}\nBrief: {article['description']}" for article in three_articles]
+
+print(article_list)
+
+# Send a seperate message with the percentage change and each article's title and description to your email.
+MY_EMAIL = "GOES IN HERE"
+MY_PASS = "GOES IN HERE"
+
+if diff_percent > 1:
+    for story in article_list:
+        with smtplib.SMTP("smtp.gmail.com") as connection:
+            connection.starttls()
+            connection.login(user=MY_EMAIL, password=MY_PASS)
+            connection.sendmail(
+                from_addr=MY_EMAIL,
+                to_addrs=MY_EMAIL,
+                msg=f"Subject:{STOCK} {diff_percent}%\n\n{story}"
+        )
+
+
